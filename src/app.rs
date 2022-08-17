@@ -1,8 +1,9 @@
-use std::collections::HashMap;
-
-use futures::executor::block_on;
+use egui::Align;
+use egui::*;
 use log::{error, info};
 use mongodb::Client;
+use std::collections::HashMap;
+use tokio::runtime::Runtime;
 
 use crate::collection_list;
 
@@ -13,12 +14,9 @@ pub struct TemplateApp {
     // Example stuff:
     uri: String,
 
-    // this how you opt-out of serialization of a member
-    #[serde(skip)]
-    value: f32,
-
     #[serde(skip)]
     clientMap: HashMap<String, Client>,
+    collections: Vec<String>,
 }
 
 impl Default for TemplateApp {
@@ -26,8 +24,8 @@ impl Default for TemplateApp {
         Self {
             // Example stuff:
             uri: "mongodb://127.0.0.1:27017".to_owned(),
-            value: 2.7,
             clientMap: HashMap::new(),
+            collections: Vec::new(),
         }
     }
 }
@@ -59,8 +57,8 @@ impl eframe::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let Self {
             uri,
-            value,
             clientMap,
+            collections,
         } = self;
 
         // Examples of how to create different panels and windows.
@@ -83,22 +81,42 @@ impl eframe::App for TemplateApp {
             // The top panel is often a good place for a menu bar:
             ui.horizontal(|ui| {
                 ui.text_edit_singleline(uri);
-                if ui.button("Connect").clicked() {
-                    info!("Connecting: {}", uri);
-                    match block_on(Client::with_uri_str("mongodb://example.com")) {
-                        Ok(c) => {
-                            clientMap.insert(uri.to_owned(), c);
-                        }
-                        Err(e) => {
-                            error!("Error connecting: {}: {}", uri, e);
-                        }
-                    }
+                let connect_btn = Button::new("Connect");
+                let mut connecting = true;
+                if ui.add_enabled(!connecting, connect_btn).clicked() {
+                    info!("Connecting: {}", uri.clone());
+
+                    let rt = Runtime::new().unwrap();
+
+                    let urix = uri.clone();
+                    rt.spawn(async move {
+                        match Client::with_uri_str("mongodb://example.com").await {
+                            Ok(c) => {
+                                let db = c.database("test");
+                                match db.list_collection_names(None).await {
+                                    Ok(cc) => {
+                                        info!("Connecting OK");
+                                        // connecting = false;
+                                        // self.collections = cc;
+                                        // clientMap.insert(urix.to_owned(), c.clone());
+                                    }
+                                    Err(e) => {
+                                        error!("Error connecting to {}: {}", urix.clone(), e);
+                                    }
+                                };
+                            }
+                            Err(e) => {
+                                error!("Error connecting: {}: {}", urix.clone(), e);
+                            }
+                        };
+                    });
                 }
             });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            let mut scroll_to = collection_list::ScrollTo::default();
+            let mut scroll_to =
+                collection_list::ScrollTo::new(self.collections.clone(), Some(Align::Center));
             scroll_to.ui(ui);
         });
 

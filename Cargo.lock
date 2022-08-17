@@ -1209,6 +1209,7 @@ dependencies = [
  "log",
  "mongodb",
  "serde",
+ "tokio",
  "tracing-subscriber",
  "tracing-wasm",
 ]

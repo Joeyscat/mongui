@@ -12,13 +12,20 @@ pub struct ScrollTo {
 impl Default for ScrollTo {
     fn default() -> Self {
         Self {
-            collections: vec!["a".to_string(),"a".to_string()],
+            collections: vec![],
             tack_item_align: Some(Align::Center),
         }
     }
 }
 
 impl ScrollTo {
+    pub fn new(collections: Vec<String>, tack_item_align: Option<Align>) -> Self {
+        Self {
+            collections,
+            tack_item_align,
+        }
+    }
+
     pub fn ui(&mut self, ui: &mut Ui) {
         ui.label("collections");
 
@@ -30,12 +37,12 @@ impl ScrollTo {
             .auto_shrink([false; 2])
             .show(ui, |ui| {
                 ui.vertical(|ui| {
-                    for item in 1..=50 {
+                    for (i, collection) in self.collections.iter_mut().enumerate() {
                         if ui
-                            .add(Label::new(format!("This is item {}", item)).sense(Sense::click()))
+                            .add(Label::new(format!("{}", collection)).sense(Sense::click()))
                             .clicked()
                         {
-                            info!("clicked item {}", item);
+                            info!("clicked item {}, index {}", collection, i);
                         }
                     }
                 });
